@@ -1,29 +1,22 @@
-# Flask Web Application Requirements
-# Exact same packages as desktop version plus Flask web framework
+# Flask Web Application Requirements - Railway Compatible
 
 # Flask web framework
 Flask==3.0.0
 Werkzeug==3.0.1
 
-# Selenium web automation (same as desktop version)
+# Selenium web automation
 selenium==4.15.2
 webdriver-manager==4.0.1
 
-# Image processing (same as desktop version)
+# Image processing
 Pillow==10.1.0
 
-# Excel generation (same as desktop version)
+# Excel generation
 openpyxl==3.1.2
 
-# Additional Python packages for web deployment
+# Web deployment
 gunicorn==21.2.0
 python-dotenv==1.0.0
 
-# Development dependencies
-pytest==7.4.3
-pytest-flask==1.3.0
-black==23.11.0
-flake8==6.1.0
-
-# Security and monitoring
-cryptography==41.0.8
+# Security (latest compatible version)
+cryptography>=42.0.0
