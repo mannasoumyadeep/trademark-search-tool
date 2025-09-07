@@ -33,6 +33,8 @@ class TrademarkScraper:
             
             # For headless deployment (can be enabled via environment variable)
             import os
+            import tempfile
+            import uuid
             if os.environ.get('HEADLESS', 'false').lower() == 'true':
                 options.add_argument("--headless")
                 options.add_argument("--no-sandbox")
@@ -40,7 +42,19 @@ class TrademarkScraper:
                 options.add_argument("--disable-gpu")
                 options.add_argument("--disable-extensions")
                 options.add_argument("--disable-dev-shm-usage")
-                options.add_argument("--remote-debugging-port=9222")
+                
+                # Create unique user data directory for each session
+                unique_id = str(uuid.uuid4())[:8]
+                user_data_dir = f"/tmp/chrome_user_data_{unique_id}"
+                options.add_argument(f"--user-data-dir={user_data_dir}")
+                options.add_argument("--single-process")
+                options.add_argument("--disable-web-security")
+                options.add_argument("--disable-features=VizDisplayCompositor")
+                
+                # Use unique remote debugging port
+                import random
+                debug_port = random.randint(9000, 9999)
+                options.add_argument(f"--remote-debugging-port={debug_port}")
             
             # Use system-installed ChromeDriver only
             try:
@@ -243,8 +257,25 @@ class TrademarkScraper:
         """Clean up browser resources"""
         try:
             if self.driver:
+                # Get user data directory before quitting
+                import os
+                import shutil
+                user_data_dir = None
+                if hasattr(self.driver, 'service') and self.driver.service:
+                    for arg in self.driver.options.arguments:
+                        if arg.startswith('--user-data-dir='):
+                            user_data_dir = arg.split('=', 1)[1]
+                            break
+                
                 self.driver.quit()
                 self.driver = None
                 self.wait = None
+                
+                # Clean up temporary user data directory
+                if user_data_dir and os.path.exists(user_data_dir):
+                    try:
+                        shutil.rmtree(user_data_dir)
+                    except:
+                        pass
         except:
             pass
