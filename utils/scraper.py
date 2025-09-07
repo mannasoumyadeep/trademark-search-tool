@@ -36,30 +36,54 @@ class TrademarkScraper:
             import tempfile
             import uuid
             if os.environ.get('HEADLESS', 'false').lower() == 'true':
-                options.add_argument("--headless")
+                # Essential headless options
+                options.add_argument("--headless=new")  # Use new headless mode
                 options.add_argument("--no-sandbox")
                 options.add_argument("--disable-dev-shm-usage")
                 options.add_argument("--disable-gpu")
+                
+                # Performance optimizations for faster startup
                 options.add_argument("--disable-extensions")
-                options.add_argument("--disable-dev-shm-usage")
+                options.add_argument("--disable-plugins")
+                options.add_argument("--disable-default-apps")
+                options.add_argument("--disable-background-timer-throttling")
+                options.add_argument("--disable-backgrounding-occluded-windows")
+                options.add_argument("--disable-renderer-backgrounding")
+                options.add_argument("--disable-background-networking")
+                options.add_argument("--disable-features=TranslateUI,BlinkGenPropertyTrees,VizDisplayCompositor")
+                options.add_argument("--disable-web-security")
+                options.add_argument("--ignore-certificate-errors")
+                options.add_argument("--ignore-ssl-errors")
+                options.add_argument("--disable-logging")
+                options.add_argument("--silent")
                 
                 # Create unique user data directory for each session
                 unique_id = str(uuid.uuid4())[:8]
                 user_data_dir = f"/tmp/chrome_user_data_{unique_id}"
                 options.add_argument(f"--user-data-dir={user_data_dir}")
-                options.add_argument("--single-process")
-                options.add_argument("--disable-web-security")
-                options.add_argument("--disable-features=VizDisplayCompositor")
                 
-                # Use unique remote debugging port
-                import random
-                debug_port = random.randint(9000, 9999)
-                options.add_argument(f"--remote-debugging-port={debug_port}")
+                # Memory optimizations
+                options.add_argument("--memory-pressure-off")
+                options.add_argument("--max_old_space_size=4096")
+                
+                # Skip remote debugging port - not needed for scraping
+                print(f"Chrome will use user data dir: {user_data_dir}")
             
-            # Use system-installed ChromeDriver only
+            # Use system-installed ChromeDriver only with timeout
+            print("Starting ChromeDriver initialization...")
+            import signal
+            
+            def timeout_handler(signum, frame):
+                raise TimeoutException("ChromeDriver initialization timeout")
+            
+            # Set timeout for Chrome startup
+            signal.signal(signal.SIGALRM, timeout_handler)
+            signal.alarm(30)  # 30 second timeout
+            
             try:
                 # Use system chromedriver (installed in Dockerfile)
                 service = ChromeService("/usr/bin/chromedriver")
+                service.start_error_message = "ChromeDriver failed to start"
                 self.driver = webdriver.Chrome(service=service, options=options)
                 print("SUCCESS: Using system ChromeDriver")
             except Exception as e:
@@ -71,7 +95,10 @@ class TrademarkScraper:
                 except Exception as e2:
                     print(f"FAILED Chrome built-in driver: {e2}")
                     raise Exception(f"ChromeDriver initialization failed: {e} | {e2}")
+            finally:
+                signal.alarm(0)  # Cancel timeout
             
+            print("ChromeDriver initialized successfully")
             self.wait = WebDriverWait(self.driver, 20)
             
             # Navigate to website - SAME URL as desktop version
