@@ -56,9 +56,7 @@ ENV FLASK_APP=app.py \
 
 EXPOSE 5000
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
-    CMD curl -f http://localhost:${PORT:-5000}/health || exit 1
+# Remove Docker health check - Railway handles this differently
 
 # Copy startup script
 COPY start.sh .
