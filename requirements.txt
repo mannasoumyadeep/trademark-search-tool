@@ -6,7 +6,6 @@ Werkzeug==3.0.1
 
 # Selenium web automation
 selenium==4.15.2
-webdriver-manager==4.0.1
 
 # Image processing
 Pillow==10.1.0

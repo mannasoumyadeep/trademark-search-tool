@@ -13,7 +13,6 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait, Select
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException, NoSuchElementException
-from webdriver_manager.chrome import ChromeDriverManager
 from selenium.webdriver.chrome.service import Service as ChromeService
 
 class TrademarkScraper:
@@ -43,20 +42,21 @@ class TrademarkScraper:
                 options.add_argument("--disable-dev-shm-usage")
                 options.add_argument("--remote-debugging-port=9222")
             
-            # Try to use system Chrome first, then ChromeDriverManager
+            # Use system-installed ChromeDriver only
             try:
-                # First try: use system chromedriver if available
+                # Use system chromedriver (installed in Dockerfile)
                 service = ChromeService("/usr/bin/chromedriver")
                 self.driver = webdriver.Chrome(service=service, options=options)
-            except:
+                print("SUCCESS: Using system ChromeDriver")
+            except Exception as e:
+                print(f"FAILED to use system ChromeDriver: {e}")
                 try:
-                    # Second try: ChromeDriverManager with specific version
-                    from webdriver_manager.chrome import ChromeDriverManager
-                    service = ChromeService(ChromeDriverManager(driver_version="auto").install())
-                    self.driver = webdriver.Chrome(service=service, options=options)
-                except Exception as e:
-                    # Third try: let Chrome find its own driver
+                    # Fallback: let Chrome find its own driver  
                     self.driver = webdriver.Chrome(options=options)
+                    print("SUCCESS: Using Chrome's built-in driver")
+                except Exception as e2:
+                    print(f"FAILED Chrome built-in driver: {e2}")
+                    raise Exception(f"ChromeDriver initialization failed: {e} | {e2}")
             
             self.wait = WebDriverWait(self.driver, 20)
             
