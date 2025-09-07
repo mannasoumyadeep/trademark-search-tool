@@ -11,6 +11,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     gnupg2 \
     curl \
     ca-certificates \
+    unzip \
     fonts-liberation \
     libasound2 \
     libatk-bridge2.0-0 \
@@ -34,6 +35,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && echo "deb [arch=amd64 signed-by=/usr/share/keyrings/googlechrome-linux-keyring.gpg] http://dl.google.com/linux/chrome/deb/ stable main" > /etc/apt/sources.list.d/google-chrome.list \
     && apt-get update \
     && apt-get install -y google-chrome-stable \
+    && CHROME_VERSION=$(google-chrome --version | awk '{print $3}' | cut -d. -f1) \
+    && wget -O /tmp/chromedriver.zip "https://chromedriver.storage.googleapis.com/$(curl -s https://chromedriver.storage.googleapis.com/LATEST_RELEASE_${CHROME_VERSION})/chromedriver_linux64.zip" \
+    && unzip -o /tmp/chromedriver.zip -d /tmp/ \
+    && mv /tmp/chromedriver /usr/bin/chromedriver \
+    && chmod +x /usr/bin/chromedriver \
+    && rm /tmp/chromedriver.zip \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app

@@ -39,9 +39,25 @@ class TrademarkScraper:
                 options.add_argument("--no-sandbox")
                 options.add_argument("--disable-dev-shm-usage")
                 options.add_argument("--disable-gpu")
+                options.add_argument("--disable-extensions")
+                options.add_argument("--disable-dev-shm-usage")
+                options.add_argument("--remote-debugging-port=9222")
             
-            service = ChromeService(ChromeDriverManager().install())
-            self.driver = webdriver.Chrome(service=service, options=options)
+            # Try to use system Chrome first, then ChromeDriverManager
+            try:
+                # First try: use system chromedriver if available
+                service = ChromeService("/usr/bin/chromedriver")
+                self.driver = webdriver.Chrome(service=service, options=options)
+            except:
+                try:
+                    # Second try: ChromeDriverManager with specific version
+                    from webdriver_manager.chrome import ChromeDriverManager
+                    service = ChromeService(ChromeDriverManager(driver_version="auto").install())
+                    self.driver = webdriver.Chrome(service=service, options=options)
+                except Exception as e:
+                    # Third try: let Chrome find its own driver
+                    self.driver = webdriver.Chrome(options=options)
+            
             self.wait = WebDriverWait(self.driver, 20)
             
             # Navigate to website - SAME URL as desktop version
