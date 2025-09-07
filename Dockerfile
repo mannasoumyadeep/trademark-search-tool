@@ -37,15 +37,21 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && apt-get install -y google-chrome-stable \
     && rm -rf /var/lib/apt/lists/*
 
-# Install ChromeDriver separately with better error handling
-RUN CHROME_VERSION=$(google-chrome --version | awk '{print $3}' | cut -d'.' -f1-3) \
-    && echo "Chrome version: $CHROME_VERSION" \
-    && wget --timeout=30 --tries=3 -O /tmp/chromedriver.zip "https://storage.googleapis.com/chrome-for-testing-public/${CHROME_VERSION}/linux64/chromedriver-linux64.zip" \
-    || wget --timeout=30 --tries=3 -O /tmp/chromedriver.zip "https://edgedl.me.gvt1.com/edgedl/chrome/chrome-for-testing/${CHROME_VERSION}/linux64/chromedriver-linux64.zip" \
+# Install ChromeDriver with version matching
+RUN CHROME_VERSION=$(google-chrome --version | awk '{print $3}') \
+    && echo "Full Chrome version: $CHROME_VERSION" \
+    && CHROMEDRIVER_URL="https://storage.googleapis.com/chrome-for-testing-public/${CHROME_VERSION}/linux64/chromedriver-linux64.zip" \
+    && echo "Trying ChromeDriver URL: $CHROMEDRIVER_URL" \
+    && (wget --timeout=30 --tries=2 -O /tmp/chromedriver.zip "$CHROMEDRIVER_URL" \
+        || (echo "Exact version failed, trying latest stable..." \
+            && LATEST_VERSION=$(curl -s https://googlechromelabs.github.io/chrome-for-testing/last-known-good-versions.json | grep -o '"Stable":"[^"]*' | cut -d'"' -f4) \
+            && echo "Latest stable version: $LATEST_VERSION" \
+            && wget --timeout=30 --tries=2 -O /tmp/chromedriver.zip "https://storage.googleapis.com/chrome-for-testing-public/${LATEST_VERSION}/linux64/chromedriver-linux64.zip")) \
     && unzip -o /tmp/chromedriver.zip -d /tmp/ \
     && mv /tmp/chromedriver-linux64/chromedriver /usr/bin/chromedriver \
     && chmod +x /usr/bin/chromedriver \
     && rm -rf /tmp/chromedriver.zip /tmp/chromedriver-linux64 \
+    && echo "ChromeDriver installed successfully:" \
     && chromedriver --version
 
 WORKDIR /app
