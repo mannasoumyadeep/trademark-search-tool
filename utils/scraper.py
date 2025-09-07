@@ -69,34 +69,26 @@ class TrademarkScraper:
                 # Skip remote debugging port - not needed for scraping
                 print(f"Chrome will use user data dir: {user_data_dir}")
             
-            # Use system-installed ChromeDriver only with timeout
+            # Use system-installed ChromeDriver only
             print("Starting ChromeDriver initialization...")
-            import signal
-            
-            def timeout_handler(signum, frame):
-                raise TimeoutException("ChromeDriver initialization timeout")
-            
-            # Set timeout for Chrome startup
-            signal.signal(signal.SIGALRM, timeout_handler)
-            signal.alarm(30)  # 30 second timeout
             
             try:
                 # Use system chromedriver (installed in Dockerfile)
                 service = ChromeService("/usr/bin/chromedriver")
                 service.start_error_message = "ChromeDriver failed to start"
+                print("Attempting to create Chrome driver...")
                 self.driver = webdriver.Chrome(service=service, options=options)
                 print("SUCCESS: Using system ChromeDriver")
             except Exception as e:
                 print(f"FAILED to use system ChromeDriver: {e}")
                 try:
                     # Fallback: let Chrome find its own driver  
+                    print("Trying Chrome built-in driver...")
                     self.driver = webdriver.Chrome(options=options)
                     print("SUCCESS: Using Chrome's built-in driver")
                 except Exception as e2:
                     print(f"FAILED Chrome built-in driver: {e2}")
                     raise Exception(f"ChromeDriver initialization failed: {e} | {e2}")
-            finally:
-                signal.alarm(0)  # Cancel timeout
             
             print("ChromeDriver initialized successfully")
             self.wait = WebDriverWait(self.driver, 20)
