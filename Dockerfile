@@ -58,6 +58,10 @@ EXPOSE 5000
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
-    CMD curl -f http://localhost:5000/health || exit 1
+    CMD curl -f http://localhost:${PORT:-5000}/health || exit 1
 
-CMD ["gunicorn", "--bind", "0.0.0.0:$PORT", "--workers", "2", "--timeout", "300", "--preload", "app:app"]
+# Copy startup script
+COPY start.sh .
+RUN chmod +x start.sh
+
+CMD ["./start.sh"]
