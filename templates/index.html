@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Indian Trademark Registry Search Tool</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='favicon.ico') }}">
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <h1>Indian Trademark Registry Search Tool</h1>
+            <p class="subtitle">Web version - Search and export Indian trademark data with images</p>
+        </header>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Search Form -->
+            <div class="search-section">
+                <h2>Search Parameters</h2>
+                <form id="searchForm" class="search-form">
+                    <div class="form-group">
+                        <label for="wordmark">Wordmark*</label>
+                        <input type="text" id="wordmark" name="wordmark" required 
+                               placeholder="Enter trademark name to search" 
+                               class="form-input">
+                        <small class="help-text">The trademark name you want to search for</small>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="class">Class</label>
+                            <input type="text" id="class" name="class" 
+                                   placeholder="e.g., 09, 35, 42" 
+                                   class="form-input">
+                            <small class="help-text">Trademark class (optional)</small>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="filter">Filter Type</label>
+                            <select id="filter" name="filter" class="form-select">
+                                <option value="Contains">Contains</option>
+                                <option value="Start With">Start With</option>
+                                <option value="Match With">Match With</option>
+                            </select>
+                            <small class="help-text">Search matching type</small>
+                        </div>
+                    </div>
+
+                    <button type="submit" id="startSearchBtn" class="btn btn-primary">
+                        <span class="btn-icon">🔍</span>
+                        Start Search
+                    </button>
+                </form>
+            </div>
+
+            <!-- Status Section -->
+            <div id="statusSection" class="status-section" style="display: none;">
+                <h2>Search Status</h2>
+                <div class="status-content">
+                    <div id="statusMessage" class="status-message">Initializing...</div>
+                    <div id="progressBar" class="progress-bar" style="display: none;">
+                        <div id="progressFill" class="progress-fill"></div>
+                        <span id="progressText" class="progress-text">0%</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- CAPTCHA Section -->
+            <div id="captchaSection" class="captcha-section" style="display: none;">
+                <h2>CAPTCHA Verification</h2>
+                <div class="captcha-content">
+                    <div class="captcha-image-container">
+                        <img id="captchaImage" src="" alt="CAPTCHA Image" class="captcha-image">
+                    </div>
+                    <form id="captchaForm" class="captcha-form">
+                        <div class="form-group">
+                            <label for="captchaInput">Enter CAPTCHA*</label>
+                            <input type="text" id="captchaInput" name="captcha" required 
+                                   placeholder="Enter the text shown in image" 
+                                   class="form-input captcha-input" 
+                                   autocomplete="off">
+                        </div>
+                        <div class="captcha-buttons">
+                            <button type="submit" class="btn btn-success">
+                                <span class="btn-icon">✓</span>
+                                Submit Search
+                            </button>
+                            <button type="button" id="resetBtn" class="btn btn-secondary">
+                                <span class="btn-icon">↻</span>
+                                Reset
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Results Section -->
+            <div id="resultsSection" class="results-section" style="display: none;">
+                <div class="results-header">
+                    <h2>Search Results</h2>
+                    <div class="results-actions">
+                        <span id="resultCount" class="result-count">0 results found</span>
+                        <button id="exportBtn" class="btn btn-success" style="display: none;">
+                            <span class="btn-icon">📊</span>
+                            Export to Excel
+                        </button>
+                        <button id="newSearchBtn" class="btn btn-primary">
+                            <span class="btn-icon">🔍</span>
+                            New Search
+                        </button>
+                    </div>
+                </div>
+
+                <div id="resultsContainer" class="results-container">
+                    <div class="results-table-container">
+                        <table id="resultsTable" class="results-table">
+                            <thead>
+                                <tr>
+                                    <th>S.No</th>
+                                    <th>Application Number</th>
+                                    <th>Wordmark</th>
+                                    <th>Proprietor</th>
+                                    <th>Class</th>
+                                    <th>Status</th>
+                                    <th>Image</th>
+                                </tr>
+                            </thead>
+                            <tbody id="resultsTableBody">
+                                <!-- Results will be populated here -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- Loading Overlay -->
+        <div id="loadingOverlay" class="loading-overlay" style="display: none;">
+            <div class="loading-spinner">
+                <div class="spinner"></div>
+                <p class="loading-text">Processing...</p>
+            </div>
+        </div>
+
+        <!-- Alert Messages -->
+        <div id="alertContainer" class="alert-container"></div>
+
+        <!-- Footer -->
+        <footer class="footer">
+            <p>&copy; 2025 Trademark Search Tool - Web Version</p>
+            <p class="footer-note">Data sourced from <a href="https://tmrsearch.ipindia.gov.in" target="_blank">Indian Patent Office</a></p>
+        </footer>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>

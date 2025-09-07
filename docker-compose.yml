@@ -1,0 +1,65 @@
+# Docker Compose configuration for Trademark Search Web Application
+
+version: '3.8'
+
+services:
+  # Main application
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: trademark-search-app
+    restart: unless-stopped
+    ports:
+      - "5000:5000"
+    environment:
+      - FLASK_ENV=production
+      - SECRET_KEY=${SECRET_KEY:-your-secret-key-change-in-production}
+      - HEADLESS=true
+    volumes:
+      # Persist logs
+      - ./logs:/app/logs
+      # Shared memory for Chrome (prevents crashes)
+      - /dev/shm:/dev/shm
+    tmpfs:
+      - /tmp
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    networks:
+      - trademark-network
+
+  # Nginx reverse proxy
+  nginx:
+    image: nginx:alpine
+    container_name: trademark-search-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./deploy/nginx-docker.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./static:/app/static:ro
+      - nginx-logs:/var/log/nginx
+      # SSL certificates (uncomment if using SSL)
+      # - ./ssl:/etc/ssl/certs:ro
+    depends_on:
+      - app
+    healthcheck:
+      test: ["CMD", "nginx", "-t"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - trademark-network
+
+networks:
+  trademark-network:
+    driver: bridge
+
+volumes:
+  nginx-logs:
+    driver: local

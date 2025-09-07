@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: trademark-search
+    env: docker
+    dockerfilePath: ./Dockerfile
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      - key: FLASK_ENV
+        value: production
+      - key: HEADLESS
+        value: true
+      - key: SECRET_KEY
+        generateValue: true

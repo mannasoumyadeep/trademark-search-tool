@@ -1,0 +1,41 @@
+{
+  "name": "Indian Trademark Search Tool",
+  "description": "Web application for searching Indian trademark registry with Excel export",
+  "repository": "https://github.com/yourusername/trademark-search",
+  "logo": "",
+  "keywords": ["flask", "selenium", "trademark", "search", "excel"],
+  "image": "heroku/python",
+  "stack": "heroku-22",
+  "buildpacks": [
+    {
+      "url": "https://github.com/heroku/heroku-buildpack-google-chrome"
+    },
+    {
+      "url": "https://github.com/heroku/heroku-buildpack-chromedriver"
+    },
+    {
+      "url": "heroku/python"
+    }
+  ],
+  "env": {
+    "FLASK_ENV": {
+      "value": "production"
+    },
+    "HEADLESS": {
+      "value": "true"
+    },
+    "SECRET_KEY": {
+      "generator": "secret"
+    }
+  },
+  "formation": {
+    "web": {
+      "quantity": 1,
+      "size": "basic"
+    }
+  },
+  "addons": [],
+  "scripts": {
+    "postdeploy": "echo 'Deployment complete'"
+  }
+}

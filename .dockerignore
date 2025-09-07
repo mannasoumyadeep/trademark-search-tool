@@ -1,0 +1,61 @@
+# Docker ignore file for Trademark Search Application
+
+# Version control
+.git
+.gitignore
+
+# IDE files
+.vscode
+.idea
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+.coverage
+.pytest_cache/
+*.egg-info/
+dist/
+build/
+
+# Virtual environment
+venv/
+env/
+.env
+
+# Logs
+logs/
+*.log
+
+# Temporary files
+temp/
+tmp/
+*.tmp
+
+# Docker
+Dockerfile
+docker-compose*.yml
+.dockerignore
+
+# Documentation (unless needed)
+README.md
+docs/
+
+# Development files
+tests/
+.pytest.ini
+.coveragerc
+
+# Deployment files (not needed in container)
+deploy/setup.sh
+deploy/ssl-setup.sh
