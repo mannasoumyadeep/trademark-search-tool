@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
 """
-Indian Trademark Registry Search Tool - Flask Web Application (Railway-compatible version)
-Simplified version that gracefully handles missing Chrome/Selenium
+Indian Trademark Registry Search Tool - Flask Web Application
+Converted from desktop Tkinter version to web interface
+Maintains exact same functionality and element IDs
 """
 
 from flask import Flask, render_template, request, jsonify, session, send_file, flash, redirect, url_for
@@ -13,12 +14,14 @@ from datetime import datetime
 import base64
 from io import BytesIO
 import json
+from utils.scraper import TrademarkScraper
+from utils.excel_generator import ExcelGenerator
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'your-secret-key-change-in-production')
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
 
-# Global dictionary to store user sessions
+# Global dictionary to store user sessions and their scrapers
 user_sessions = {}
 session_lock = threading.Lock()
 
@@ -33,6 +36,9 @@ def cleanup_old_sessions():
         
         for session_id in sessions_to_remove:
             if session_id in user_sessions:
+                scraper = user_sessions[session_id].get('scraper')
+                if scraper:
+                    scraper.cleanup()
                 del user_sessions[session_id]
 
 def get_or_create_session():
@@ -68,17 +74,6 @@ def start_search():
     user_id = get_or_create_session()
     
     try:
-        # Check if Selenium is available
-        try:
-            from utils.scraper import TrademarkScraper
-            selenium_available = True
-        except ImportError as e:
-            selenium_available = False
-            return jsonify({
-                'success': False, 
-                'message': 'Search functionality is not available yet. Chrome/Selenium dependencies are being installed. Please try again in a few minutes.'
-            })
-        
         data = request.get_json()
         wordmark = data.get('wordmark', '').strip()
         trademark_class = data.get('class', '').strip()
@@ -146,18 +141,126 @@ def get_status():
 @app.route('/submit_search', methods=['POST'])
 def submit_search():
     """Submit search with CAPTCHA"""
-    return jsonify({'success': False, 'message': 'Search functionality will be available after Chrome installation completes'})
+    user_id = get_or_create_session()
+    
+    try:
+        data = request.get_json()
+        captcha = data.get('captcha', '').strip()
+        
+        if not captcha:
+            return jsonify({'success': False, 'message': 'CAPTCHA is required'})
+        
+        with session_lock:
+            session_data = user_sessions.get(user_id, {})
+            scraper = session_data.get('scraper')
+            
+            if not scraper or session_data.get('status') != 'captcha_ready':
+                return jsonify({'success': False, 'message': 'Please initialize search first'})
+            
+            session_data['status'] = 'searching'
+            session_data['progress'] = 0
+            session_data['progress_message'] = 'Starting search...'
+        
+        # Perform search in background thread
+        def perform_search():
+            try:
+                # Submit search
+                scraper.submit_search(captcha)
+                
+                with session_lock:
+                    user_sessions[user_id]['progress'] = 20
+                    user_sessions[user_id]['progress_message'] = 'Extracting results...'
+                
+                # Extract results with progress updates
+                def progress_callback(current, total, message):
+                    with session_lock:
+                        progress = 20 + int((current / total) * 70)  # 20% to 90%
+                        user_sessions[user_id]['progress'] = progress
+                        user_sessions[user_id]['progress_message'] = message
+                
+                results = scraper.extract_results(progress_callback)
+                
+                with session_lock:
+                    user_sessions[user_id]['search_results'] = results
+                    user_sessions[user_id]['status'] = 'complete'
+                    user_sessions[user_id]['progress'] = 100
+                    user_sessions[user_id]['progress_message'] = f'Found {len(results)} results'
+                    
+            except Exception as e:
+                with session_lock:
+                    user_sessions[user_id]['status'] = 'error'
+                    user_sessions[user_id]['error_message'] = str(e)
+        
+        thread = threading.Thread(target=perform_search)
+        thread.daemon = True
+        thread.start()
+        
+        return jsonify({'success': True, 'message': 'Search started...'})
+        
+    except Exception as e:
+        return jsonify({'success': False, 'message': f'Error: {str(e)}'})
 
 @app.route('/get_results')
 def get_results():
     """Get search results for display"""
-    return jsonify({'success': True, 'results': [], 'total_count': 0})
+    user_id = get_or_create_session()
+    
+    with session_lock:
+        session_data = user_sessions.get(user_id, {})
+        results = session_data.get('search_results', [])
+    
+    # Prepare results for display (without image data to reduce response size)
+    display_results = []
+    for result in results:
+        display_result = {
+            'Application_Number': result.get('Application_Number', ''),
+            'Wordmark': result.get('Wordmark', ''),
+            'Proprietor': result.get('Proprietor', ''),
+            'Class': result.get('Class', ''),
+            'Status': result.get('Status', ''),
+            'has_image': bool(result.get('Image_Data'))
+        }
+        display_results.append(display_result)
+    
+    return jsonify({
+        'success': True,
+        'results': display_results,
+        'total_count': len(display_results)
+    })
 
 @app.route('/export_excel')
 def export_excel():
     """Export results to Excel with embedded images"""
-    flash('Excel export will be available after search functionality is ready', 'info')
-    return redirect(url_for('index'))
+    user_id = get_or_create_session()
+    
+    try:
+        with session_lock:
+            session_data = user_sessions.get(user_id, {})
+            results = session_data.get('search_results', [])
+        
+        if not results:
+            flash('No search results to export', 'error')
+            return redirect(url_for('index'))
+        
+        # Generate Excel file
+        excel_generator = ExcelGenerator()
+        excel_file = excel_generator.generate_excel(results)
+        
+        # Generate filename
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        wordmark = results[0].get('Search_Wordmark', 'search')
+        filename = f"Trademark_Search_{wordmark}_{timestamp}.xlsx"
+        
+        return send_file(
+            excel_file,
+            as_attachment=True,
+            download_name=filename,
+            mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+        
+    except Exception as e:
+        flash(f'Export error: {str(e)}', 'error')
+        return redirect(url_for('index'))
 
 @app.route('/reset_search', methods=['POST'])
 def reset_search():
@@ -166,6 +269,12 @@ def reset_search():
     
     try:
         with session_lock:
+            session_data = user_sessions.get(user_id, {})
+            scraper = session_data.get('scraper')
+            
+            if scraper:
+                scraper.cleanup()
+            
             # Reset session data
             user_sessions[user_id] = {
                 'scraper': None,
@@ -182,28 +291,10 @@ def reset_search():
 @app.route('/health')
 def health_check():
     """Health check endpoint for monitoring"""
-    
-    # Check if Selenium dependencies are available
-    try:
-        import selenium
-        from selenium import webdriver
-        selenium_status = "available"
-    except ImportError:
-        selenium_status = "installing"
-    
-    try:
-        import openpyxl
-        excel_status = "available"
-    except ImportError:
-        excel_status = "missing"
-    
     return jsonify({
         'status': 'healthy',
         'timestamp': datetime.now().isoformat(),
-        'active_sessions': len(user_sessions),
-        'selenium': selenium_status,
-        'excel': excel_status,
-        'message': 'Web interface ready. Search functionality will be available once Chrome installation completes.'
+        'active_sessions': len(user_sessions)
     })
 
 @app.errorhandler(404)
@@ -216,5 +307,4 @@ def internal_error(error):
 
 if __name__ == '__main__':
     # For development only
-    port = int(os.environ.get('PORT', 5000))
-    app.run(debug=False, host='0.0.0.0', port=port, threaded=True)
+    app.run(debug=True, host='0.0.0.0', port=5000, threaded=True)
