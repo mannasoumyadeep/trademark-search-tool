@@ -13,8 +13,8 @@ COPY templates/ templates/
 COPY static/ static/
 COPY utils/ utils/
 
-# Create a simple startup script that avoids any PORT variable issues
-RUN echo '#!/bin/bash\necho "Starting simple Flask app..."\necho "PORT from environment: $PORT"\nif [ -z "$PORT" ]; then PORT=5000; fi\necho "Using PORT: $PORT"\npython -c "import os; os.environ[\"PORT\"] = \"$PORT\"; from app import app; app.run(host=\"0.0.0.0\", port=int(os.environ.get(\"PORT\", 5000)))"' > /app/start_simple.sh
+# Create a startup script with better logging and faster startup
+RUN echo '#!/bin/bash\necho "=== TRADEMARK SEARCH APP STARTING ==="\necho "PORT from environment: $PORT"\nif [ -z "$PORT" ]; then PORT=5000; fi\necho "Using PORT: $PORT"\necho "Testing Flask import..."\npython -c "from app import app; print(\"Flask app imported successfully\")"\necho "Starting Flask development server..."\npython -c "import os; os.environ[\"PORT\"] = \"$PORT\"; from app import app; print(f\"Starting on http://0.0.0.0:{os.environ[\"PORT\"]}\"); app.run(host=\"0.0.0.0\", port=int(os.environ.get(\"PORT\", 5000)), debug=False, threaded=True)"' > /app/start_simple.sh
 RUN chmod +x /app/start_simple.sh
 
 EXPOSE 5000
