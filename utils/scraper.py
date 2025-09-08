@@ -20,6 +20,7 @@ class TrademarkScraper:
         self.driver = None
         self.wait = None
         self.search_results = []
+        self.user_data_dir = None
     
     def initialize_browser(self, wordmark, trademark_class, filter_type):
         """Initialize browser and navigate to search page - EXACT same logic as desktop version"""
@@ -31,11 +32,27 @@ class TrademarkScraper:
             options.add_experimental_option("excludeSwitches", ["enable-automation"])
             options.add_experimental_option('useAutomationExtension', False)
             
-            # For headless deployment (can be enabled via environment variable)
+            # Import required modules
             import os
             import tempfile
             import uuid
-            if os.environ.get('HEADLESS', 'false').lower() == 'true':
+            
+            # Always create unique user data directory to prevent conflicts
+            unique_id = str(uuid.uuid4())[:8]
+            if os.name == 'nt':  # Windows
+                self.user_data_dir = os.path.join(tempfile.gettempdir(), f"chrome_user_data_{unique_id}")
+            else:  # Linux/Mac
+                self.user_data_dir = f"/tmp/chrome_user_data_{unique_id}"
+            options.add_argument(f"--user-data-dir={self.user_data_dir}")
+            print(f"Chrome will use user data dir: {self.user_data_dir}")
+            
+            # For headless deployment (auto-enabled for Railway/container environments)
+            is_railway = os.environ.get('RAILWAY_ENVIRONMENT', False)
+            is_production = os.environ.get('PRODUCTION', 'false').lower() == 'true'
+            force_headless = os.environ.get('HEADLESS', 'false').lower() == 'true'
+            
+            if is_railway or is_production or force_headless or os.path.exists('/.dockerenv'):
+                print("Production/Container environment detected - enabling headless mode")
                 # Essential headless options
                 options.add_argument("--headless=new")  # Use new headless mode
                 options.add_argument("--no-sandbox")
@@ -57,37 +74,45 @@ class TrademarkScraper:
                 options.add_argument("--disable-logging")
                 options.add_argument("--silent")
                 
-                # Create unique user data directory for each session
-                unique_id = str(uuid.uuid4())[:8]
-                user_data_dir = f"/tmp/chrome_user_data_{unique_id}"
-                options.add_argument(f"--user-data-dir={user_data_dir}")
-                
                 # Memory optimizations
                 options.add_argument("--memory-pressure-off")
                 options.add_argument("--max_old_space_size=4096")
                 
                 # Skip remote debugging port - not needed for scraping
-                print(f"Chrome will use user data dir: {user_data_dir}")
             
             # Use system-installed ChromeDriver only
             print("Starting ChromeDriver initialization...")
             
+            # Check if running in container/production environment
+            is_container = os.path.exists('/.dockerenv') or os.environ.get('RAILWAY_ENVIRONMENT', False)
+            
             try:
-                # Use system chromedriver (installed in Dockerfile)
-                service = ChromeService("/usr/bin/chromedriver")
-                service.start_error_message = "ChromeDriver failed to start"
-                print("Attempting to create Chrome driver...")
-                self.driver = webdriver.Chrome(service=service, options=options)
-                print("SUCCESS: Using system ChromeDriver")
-            except Exception as e:
-                print(f"FAILED to use system ChromeDriver: {e}")
-                try:
-                    # Fallback: let Chrome find its own driver  
-                    print("Trying Chrome built-in driver...")
+                if is_container:
+                    # Use system chromedriver (installed in Dockerfile)
+                    service = ChromeService("/usr/bin/chromedriver")
+                    service.start_error_message = "ChromeDriver failed to start"
+                    print("Container environment detected - using system ChromeDriver...")
+                    self.driver = webdriver.Chrome(service=service, options=options)
+                    print("SUCCESS: Using system ChromeDriver")
+                else:
+                    # Local development - let Chrome find its own driver
+                    print("Local environment - using Chrome's built-in driver...")
                     self.driver = webdriver.Chrome(options=options)
                     print("SUCCESS: Using Chrome's built-in driver")
+            except Exception as e:
+                print(f"Primary driver initialization failed: {e}")
+                try:
+                    # Fallback: try the opposite approach
+                    if is_container:
+                        print("Fallback: trying Chrome's built-in driver...")
+                        self.driver = webdriver.Chrome(options=options)
+                    else:
+                        print("Fallback: trying system ChromeDriver...")
+                        service = ChromeService("/usr/bin/chromedriver")
+                        self.driver = webdriver.Chrome(service=service, options=options)
+                    print("SUCCESS: Using fallback driver")
                 except Exception as e2:
-                    print(f"FAILED Chrome built-in driver: {e2}")
+                    print(f"All driver attempts failed: {e2}")
                     raise Exception(f"ChromeDriver initialization failed: {e} | {e2}")
             
             print("ChromeDriver initialized successfully")
@@ -276,25 +301,20 @@ class TrademarkScraper:
         """Clean up browser resources"""
         try:
             if self.driver:
-                # Get user data directory before quitting
-                import os
-                import shutil
-                user_data_dir = None
-                if hasattr(self.driver, 'service') and self.driver.service:
-                    for arg in self.driver.options.arguments:
-                        if arg.startswith('--user-data-dir='):
-                            user_data_dir = arg.split('=', 1)[1]
-                            break
-                
                 self.driver.quit()
                 self.driver = None
                 self.wait = None
                 
-                # Clean up temporary user data directory
-                if user_data_dir and os.path.exists(user_data_dir):
+            # Clean up temporary user data directory
+            if self.user_data_dir:
+                import os
+                import shutil
+                if os.path.exists(self.user_data_dir):
                     try:
-                        shutil.rmtree(user_data_dir)
-                    except:
-                        pass
-        except:
-            pass
+                        shutil.rmtree(self.user_data_dir)
+                        print(f"Cleaned up user data dir: {self.user_data_dir}")
+                    except Exception as e:
+                        print(f"Could not remove user data dir: {e}")
+                self.user_data_dir = None
+        except Exception as e:
+            print(f"Cleanup error: {e}")
